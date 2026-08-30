@@ -5,6 +5,8 @@ import { validateAndLockSlot } from "@/lib/scheduling";
 import { createInvitationInTransaction, createUnusablePasswordHash } from "@/lib/invitations";
 import { createCheckoutTokenInTransaction } from "@/lib/payment-checkout";
 import { checkRateLimit, getClientRateLimitKey } from "@/lib/rate-limit";
+import { buildActivationUrl } from "@/lib/invitations";
+import { sendMail, activationEmailHtml, bookingConfirmationHtml } from "@/lib/mail";
 
 const MAX_BOOKING_NOTES_LENGTH = 1000;
 
@@ -97,7 +99,30 @@ export async function POST(req: NextRequest) {
     if (!authUser && validation.service!.priceKES > 0) {
       checkoutToken = (await createCheckoutTokenInTransaction(pgClient, appointment.id)).rawToken;
     }
-    await pgClient.query("COMMIT");
+        await pgClient.query("COMMIT");
+
+    // Send emails (best-effort — never block the booking response on this)
+    try {
+      const recipientResult = await pool.query(`SELECT email, full_name AS "fullName" FROM users WHERE id = (SELECT user_id FROM clients WHERE id = $1)`, [clientId]);
+      const recipient = recipientResult.rows[0];
+      const therapistNameResult = await pool.query(`SELECT full_name AS "fullName" FROM users WHERE id = (SELECT user_id FROM therapists WHERE id = $1)`, [therapistId]);
+      const therapistName = therapistNameResult.rows[0]?.fullName || "your therapist";
+
+      if (recipient?.email) {
+        await sendMail({
+          to: recipient.email,
+          subject: "Your session is booked",
+          html: bookingConfirmationHtml(recipient.fullName || clientName, {
+            therapistName,
+            serviceName: validation.service!.name,
+            date: appointment.date,
+            startTime: appointment.start_time,
+          }),
+        });
+      }
+    } catch (mailErr) {
+      console.error("Booking confirmation email failed", mailErr);
+    }
 
     return NextResponse.json({
       appointment: { id: appointment.id, date: appointment.date, startTime: appointment.start_time, endTime: appointment.end_time, status: appointment.status, paymentStatus: appointment.payment_status },

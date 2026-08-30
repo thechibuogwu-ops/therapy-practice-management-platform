@@ -4,7 +4,8 @@ import { therapists, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth-utils";
 import { writeAuditLog } from "@/lib/audit";
-import { createInvitationInTransaction, createUnusablePasswordHash, getInvitationPresentation } from "@/lib/invitations";
+import { createInvitationInTransaction, createUnusablePasswordHash, getInvitationPresentation, buildActivationUrl } from "@/lib/invitations";
+import { sendMail, activationEmailHtml } from "@/lib/mail";
 
 function pageParams(searchParams: URLSearchParams) {
   const page = Math.max(1, Number(searchParams.get("page") || "1"));
@@ -61,7 +62,15 @@ export async function POST(req: NextRequest) {
     const invitation = await createInvitationInTransaction(pgClient, { userId: newUser.rows[0].id, invitedBy: user!.id });
     await pgClient.query("COMMIT");
     await writeAuditLog({ actorUserId: user!.id, action: "therapist.created", entityType: "therapist", entityId: newTherapist.rows[0].id, metadata: { email, activationRequired: true } });
-    await writeAuditLog({ actorUserId: user!.id, action: "invitation.created", entityType: "user", entityId: newUser.rows[0].id, metadata: { role: "therapist" } });
+        await writeAuditLog({ actorUserId: user!.id, action: "invitation.created", entityType: "user", entityId: newUser.rows[0].id, metadata: { role: "therapist" } });
+
+    const activationUrl = buildActivationUrl(invitation.rawToken);
+    await sendMail({
+      to: newUser.rows[0].email,
+      subject: "Activate your therapist account",
+      html: activationEmailHtml(newUser.rows[0].full_name, activationUrl),
+    });
+
     return NextResponse.json({ therapist: { id: newTherapist.rows[0].id, userId: newUser.rows[0].id }, invitation: getInvitationPresentation(invitation.rawToken, invitation.expiresAt) }, { status: 201 });
   } catch (e: any) {
     await pgClient.query("ROLLBACK").catch(() => {});

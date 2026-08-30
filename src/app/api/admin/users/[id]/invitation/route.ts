@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/db";
 import { requireAuth } from "@/lib/auth-utils";
-import { createInvitationInTransaction, getInvitationPresentation } from "@/lib/invitations";
+import { createInvitationInTransaction, getInvitationPresentation, buildActivationUrl } from "@/lib/invitations";
 import { writeAuditLog } from "@/lib/audit";
+import { sendMail, activationEmailHtml } from "@/lib/mail";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth("admin");
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     await client.query("BEGIN");
     const account = await client.query(
-      `SELECT id, role, active, verified FROM users WHERE id = $1 FOR UPDATE`,
+      `SELECT id, role, active, verified, email, full_name AS "fullName" FROM users WHERE id = $1 FOR UPDATE`,
       [id]
     );
     const target = account.rows[0];
@@ -27,7 +28,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const invitation = await createInvitationInTransaction(client, { userId: id, invitedBy: user!.id });
     await client.query("COMMIT");
     await writeAuditLog({ actorUserId: user!.id, action: "invitation.resent", entityType: "user", entityId: id, metadata: { role: target.role } });
-    return NextResponse.json({ invitation: getInvitationPresentation(invitation.rawToken, invitation.expiresAt) });
+
+    const activationUrl = buildActivationUrl(invitation.rawToken);
+    const mailResult = await sendMail({
+      to: target.email,
+      subject: "Activate your account",
+      html: activationEmailHtml(target.fullName, activationUrl),
+    });
+
+    return NextResponse.json({
+      invitation: getInvitationPresentation(invitation.rawToken, invitation.expiresAt),
+      emailSent: mailResult.ok,
+    });
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Invitation resend failed");
