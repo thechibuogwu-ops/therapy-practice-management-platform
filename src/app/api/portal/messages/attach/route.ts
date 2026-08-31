@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
   const conversation = await authorizeCurrentConversation(user, conversationId);
   if (!conversation) return NextResponse.json({ error: "Conversation not found or unauthorized" }, { status: 403 });
 
-  let stored: ReturnType<typeof saveBuffer> | null = null;
+  let stored: Awaited<ReturnType<typeof saveBuffer>> | null = null;
   if (file) {
     const validated = await validateFile(file);
     if (validated.error || !validated.buffer) return NextResponse.json({ error: validated.error || "Invalid attachment." }, { status: 400 });
-    try { stored = saveBuffer(validated.buffer, file.type, "attachments"); }
+    try { stored = await saveBuffer(validated.buffer, file.type, "attachments"); }
     catch { return NextResponse.json({ error: "Attachment could not be stored." }, { status: 500 }); }
   }
 
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: { ...message, attachments: attachment ? [attachment] : [] } }, { status: 201 });
   } catch (e) {
     if (client) await client.query("ROLLBACK").catch(() => {});
-    if (stored) deleteFile(stored.filePath);
+    if (stored) await deleteFile(stored.filePath);
     console.error("Message attachment persistence failed");
     return NextResponse.json({ error: "Attachment could not be saved." }, { status: 500 });
   } finally {

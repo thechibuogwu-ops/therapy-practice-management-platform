@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Arena Next.js PostgreSQL Starter",
-  description: "Starter template with Next.js, Drizzle, and PostgreSQL.",
+  title: "Light Wellness | Therapy Practice Management",,
+  description: "Manage your therapy practice with ease using Light Wellness, a comprehensive platform for scheduling, billing, and client management.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

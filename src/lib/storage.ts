@@ -1,8 +1,6 @@
-import fs from "fs";
-import path from "path";
+import { put, del, head } from "@vercel/blob";
 import crypto from "crypto";
 
-const UPLOAD_DIR = path.resolve(process.cwd(), ".uploads");
 const configuredMegabytes = Number(process.env.MAX_UPLOAD_MB || "");
 const configuredLimit = Number(process.env.MAX_UPLOAD_SIZE_BYTES || (Number.isFinite(configuredMegabytes) && configuredMegabytes > 0 ? configuredMegabytes * 1024 * 1024 : 10 * 1024 * 1024));
 export const MAX_UPLOAD_SIZE_BYTES = Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 10 * 1024 * 1024;
@@ -49,9 +47,7 @@ export async function validateFile(file: File): Promise<{ error: string | null; 
 }
 
 export function safeDownloadName(name: string) {
-  // Content-Disposition must never receive raw user input. Use only the basename
-  // and replace characters that could create a header or path interpretation.
-  const baseName = path.basename(String(name || ""));
+  const baseName = String(name || "").split(/[\\/]/).pop() || "";
   const safe = baseName
     .normalize("NFKC")
     .replace(/[\r\n\x00-\x1F\x7F"\\/;]/g, "_")
@@ -63,26 +59,31 @@ export function safeDownloadName(name: string) {
   return safe || "download";
 }
 
-// Backward-compatible alias for existing callers.
 export const safeDownloadFilename = safeDownloadName;
 
-export function saveBuffer(buffer: Buffer, mime: string, subdir: "documents" | "attachments") {
-  const dir = path.resolve(UPLOAD_DIR, subdir);
-  if (!dir.startsWith(`${UPLOAD_DIR}${path.sep}`)) throw new Error("Invalid storage location");
-  fs.mkdirSync(dir, { recursive: true });
+export async function saveBuffer(buffer: Buffer, mime: string, subdir: "documents" | "attachments") {
   const storedName = `${crypto.randomUUID()}${ALLOWED_MIMES[mime]}`;
-  const filePath = path.join(dir, storedName);
-  fs.writeFileSync(filePath, buffer, { flag: "wx" });
-  return { storedName, filePath: `${subdir}/${storedName}`, size: buffer.length, mime };
+  const blobPath = `${subdir}/${storedName}`;
+  const blob = await put(blobPath, buffer, { access: "private", contentType: mime });
+  return { storedName, filePath: blob.pathname, size: buffer.length, mime, url: blob.url };
 }
 
-export function getFileBuffer(storedPath: string): Buffer | null {
-  const fullPath = path.resolve(UPLOAD_DIR, storedPath);
-  if (!fullPath.startsWith(`${UPLOAD_DIR}${path.sep}`) || !fs.existsSync(fullPath)) return null;
-  return fs.readFileSync(fullPath);
+export async function getFileBuffer(storedPath: string): Promise<Buffer | null> {
+  try {
+    const info = await head(storedPath);
+    const res = await fetch(info.url);
+    if (!res.ok) return null;
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch {
+    return null;
+  }
 }
 
-export function deleteFile(storedPath: string) {
-  const fullPath = path.resolve(UPLOAD_DIR, storedPath);
-  if (fullPath.startsWith(`${UPLOAD_DIR}${path.sep}`) && fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+export async function deleteFile(storedPath: string) {
+  try {
+    await del(storedPath);
+  } catch {
+    // best-effort cleanup
+  }
 }

@@ -3,6 +3,8 @@
 @theme {
   --font-serif: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-forest: #14532d;
+  --color-forest-deep: #052e16;
 }
 
 html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }

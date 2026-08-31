@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!currentClient) return NextResponse.json({ error: "Document not found or unauthorized" }, { status: 403 });
   }
 
-  const buffer = getFileBuffer(document.filePath);
+  const buffer = await getFileBuffer(document.filePath);
   if (!buffer) return NextResponse.json({ error: "Document file is unavailable." }, { status: 404 });
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     let clientId: string;
+    let pendingActivation: { userId: string; rawToken: string; email: string; fullName: string } | null = null;
     let invitationCreated = false;
     if (authUser) {
       const clientResult = await pgClient.query(`SELECT id, therapist_id FROM clients WHERE user_id=$1 FOR UPDATE`, [authUser.id]);
@@ -86,7 +87,10 @@ export async function POST(req: NextRequest) {
         clientId = createdClient.rows[0].id;
         await pgClient.query(`INSERT INTO conversations (client_id,therapist_id,created_at,updated_at) VALUES ($1,$2,NOW(),NOW()) ON CONFLICT (client_id,therapist_id) DO NOTHING`, [clientId, therapistId]);
       }
-      if (invitationCreated) await createInvitationInTransaction(pgClient, { userId, invitedBy: null });
+            if (invitationCreated) {
+        const invitation = await createInvitationInTransaction(pgClient, { userId, invitedBy: null });
+        pendingActivation = { userId, rawToken: invitation.rawToken, email: clientEmail, fullName: clientName };
+      }
     }
 
     const appointmentResult = await pgClient.query(
@@ -122,6 +126,17 @@ export async function POST(req: NextRequest) {
       }
     } catch (mailErr) {
       console.error("Booking confirmation email failed", mailErr);
+    }
+        if (pendingActivation) {
+      try {
+        await sendMail({
+          to: pendingActivation.email,
+          subject: "Activate your account to manage your bookings",
+          html: activationEmailHtml(pendingActivation.fullName, buildActivationUrl(pendingActivation.rawToken)),
+        });
+      } catch (mailErr) {
+        console.error("Activation email failed", mailErr);
+      }
     }
 
     return NextResponse.json({

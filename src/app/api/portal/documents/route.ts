@@ -87,9 +87,9 @@ export async function POST(req: NextRequest) {
     therapistId = therapist.id;
   }
 
-  let stored: ReturnType<typeof saveBuffer> | null = null;
+  let stored: Awaited<ReturnType<typeof saveBuffer>> | null = null;
   try {
-    stored = saveBuffer(validated.buffer, file.type, "documents");
+      stored = await saveBuffer(validated.buffer, file.type, "documents");
     const [document] = await db.insert(documents).values({
       clientId,
       therapistId,
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     }).returning();
     return NextResponse.json({ document: { id: document.id, fileName: document.fileName, fileSize: document.fileSize, mimeType: document.mimeType, category: document.category, createdAt: document.createdAt } }, { status: 201 });
   } catch (e) {
-    if (stored) deleteFile(stored.filePath);
+      if (stored) await deleteFile(stored.filePath);
     console.error("Document upload persistence failed");
     return NextResponse.json({ error: "Document could not be saved." }, { status: 500 });
   }

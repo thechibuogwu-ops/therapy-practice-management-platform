@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const conversation = await authorizeCurrentConversation(user, message.conversationId);
   if (!conversation) return NextResponse.json({ error: "Attachment not found or unauthorized" }, { status: 403 });
 
-  const buffer = getFileBuffer(attachment.filePath);
+  const buffer = await getFileBuffer(attachment.filePath);
   if (!buffer) return NextResponse.json({ error: "Attachment file is unavailable." }, { status: 404 });
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
