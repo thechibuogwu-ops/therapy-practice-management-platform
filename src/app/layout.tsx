@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Light Wellness | Therapy Practice Management",,
+  title: "Light Wellness | Therapy Practice Management",
   description: "Manage your therapy practice with ease using Light Wellness, a comprehensive platform for scheduling, billing, and client management.",
 };
 
