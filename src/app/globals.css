@@ -10,3 +10,11 @@
 html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body { font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #2a2724; background-color: #f4f2ee; }
 ::selection { background: #c4b89a; color: #1a3325; }
+
+input[type="date"] {
+  color-scheme: light;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  filter: none;
+}
