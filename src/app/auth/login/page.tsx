@@ -44,7 +44,7 @@ export default function LoginPage() {
             <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-stone-text/60 mb-2">Password</label>
             <input id="password" type="password" placeholder="Enter your password" className="w-full px-4 py-3 rounded-lg bg-cream border border-stone-200/60 text-stone-text placeholder:text-stone-text/40 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest/40 transition" value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
-          <button className="w-full bg-forest text-white font-bold py-3.5 rounded-lg hover:bg-forest-deep transition shadow-md shadow-forest/10 flex items-center justify-center gap-2">Sign In <ArrowRight size={18} /></button>
+          <button className="w-full bg-emerald-800 text-white font-bold py-3.5 rounded-lg hover:bg-emerald-900 transition shadow-md shadow-emerald-900/20 flex items-center justify-center gap-2">Sign In <ArrowRight size={18} /></button>
           <div className="flex items-start gap-2 text-xs text-stone-text/50">
             <ShieldCheck size={14} className="text-forest shrink-0 mt-0.5" />
             <span>Your data is protected with strict privacy and role-based access controls.</span>
